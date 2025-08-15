@@ -3,8 +3,7 @@ const { Pool } = require("pg")
 
 // --- Database and RabbitMQ Connection Details ---
 const RABBITMQ_URL = "amqp://myuser:mypassword@localhost:5672"
-const QUEUE_NAME = "orders_queue"
-
+const EXCHANGE = "orders"
 const pool = new Pool({
   user: "myuser",
   host: "localhost",
@@ -31,18 +30,19 @@ async function startWorker() {
     // --- Connect to RabbitMQ ---
     const connection = await amqp.connect(RABBITMQ_URL)
     const channel = await connection.createChannel()
-    await channel.assertQueue(QUEUE_NAME, { durable: true })
+    await channel.assertExchange(EXCHANGE, 'fanout', { durable: true })
 
     // This tells RabbitMQ to only give us one message at a time.
     // It won't send a new message until we've acknowledged the previous one.
     channel.prefetch(1)
-
+    const {queue} = await channel.assertQueue('', { exclusive: true})
+    await channel.bindQueue(queue, EXCHANGE, '')
     console.log(
-      `[👂] Worker is listening for messages in ${QUEUE_NAME}. To exit press CTRL+C`,
+      `[👂] Worker is listening for messages in ${queue}. To exit press CTRL+C`,
     )
 
     // --- Start Consuming Messages ---
-    channel.consume(QUEUE_NAME, async (msg) => {
+    channel.consume(queue, async (msg) => {
       if (msg !== null) {
         const order = JSON.parse(msg.content.toString())
         console.log(`[📥] Received order ${order.id}`)

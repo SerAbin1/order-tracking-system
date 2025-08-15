@@ -16,13 +16,15 @@ const pool = new Pool({
 // ---- NEW: RabbitMQ Connection Logic ----
 let channel
 const RABBITMQ_URL = "amqp://myuser:mypassword@localhost:5672"
-const QUEUE_NAME = "orders_queue"
+const EXCHANGE = "orders"
 
 async function connectToRabbitMQ() {
   try {
     const connection = await amqp.connect(RABBITMQ_URL)
     channel = await connection.createChannel()
-    await channel.assertQueue(QUEUE_NAME, { durable: true })
+    await channel.assertExchange(EXCHANGE, 'fanout', {
+      durable: true
+    })
     console.log("✅ Connected to RabbitMQ")
   } catch (error) {
     console.error("🔥 Failed to connect to RabbitMQ", error)
@@ -55,8 +57,8 @@ app.post("/api/orders", async (req, res) => {
 
     // ---- NEW: Publish message to RabbitMQ ----
     const message = JSON.stringify(newOrder)
-    channel.sendToQueue(QUEUE_NAME, Buffer.from(message), { persistent: true })
-    console.log(`✅ Sent order ${newOrder.id} to queue`)
+    channel.publish(EXCHANGE, '', Buffer.from(message))
+    console.log(`✅ Sent order ${newOrder.id} to exchange`)
     // --------------------------------------------
 
     res.status(201).json(newOrder)
