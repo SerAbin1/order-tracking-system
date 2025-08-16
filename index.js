@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require("express")
 const { Pool } = require("pg")
 const amqp = require("amqplib") // Import the new library
@@ -15,7 +16,7 @@ const pool = new Pool({
 
 // ---- NEW: RabbitMQ Connection Logic ----
 let channel
-const RABBITMQ_URL = "amqp://myuser:mypassword@localhost:5672"
+const RABBITMQ_URL = process.env.RABBITMQ_URL
 const QUEUE_NAME = "orders_queue"
 
 async function connectToRabbitMQ() {

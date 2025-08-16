@@ -2,7 +2,7 @@ require("dotenv").config()
 const amqp = require("amqplib")
 const crypto = require("crypto")
 
-const RABBITMQ_URL = "amqp://myuser:mypassword@localhost:5672"
+const RABBITMQ_URL = process.env.RABBITMQ_URL
 const QUEUE_NAME = "gps_updates_queue" // A new queue just for GPS data
 
 // We'll use the ID of the sample driver we inserted into the database

@@ -1,8 +1,9 @@
+require("dotenv").config()
 const amqp = require("amqplib")
 const { Pool } = require("pg")
 
 // --- Database and RabbitMQ Connection Details ---
-const RABBITMQ_URL = "amqp://myuser:mypassword@localhost:5672"
+const RABBITMQ_URL = process.env.RABBITMQ_URL
 const QUEUE_NAME = "orders_queue"
 const pool = new Pool({
   user: "myuser",
