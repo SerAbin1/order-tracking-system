@@ -1,6 +1,6 @@
 require("dotenv").config()
-const amqp = require("amqplib")
 const { createClient } = require("redis")
+const { connectToRabbitMQ } = require("./utils/connections")
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL
 const REDIS_URL = process.env.REDIS_URL
@@ -28,7 +28,7 @@ async function startWorker() {
   let rabbitmqChannel
 
   try {
-    const rabbitmqConnection = await amqp.connect(RABBITMQ_URL)
+    const rabbitmqConnection = await connectToRabbitMQ(RABBITMQ_URL)
     rabbitmqChannel = await rabbitmqConnection.createChannel()
     await rabbitmqChannel.assertQueue(GPS_QUEUE_NAME, { durable: true })
     rabbitmqChannel.prefetch(1)

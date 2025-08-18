@@ -1,41 +1,28 @@
 require("dotenv").config()
 const express = require("express")
 const { Pool } = require("pg")
-const amqp = require("amqplib")
 const http = require("http")
 const { WebSocketServer } = require("ws")
 const { createClient } = require("redis")
-const { channel } = require("diagnostics_channel")
+
+const {
+  connectToRabbitMQ,
+  checkPostgresConnection,
+} = require("./utils/connections")
 
 const app = express()
 app.use(express.json())
 
 const server = http.createServer(app)
+const DATABASE_URL = process.env.DATABASE_URL
 
 const pool = new Pool({
-  user: "myuser",
-  host: "localhost",
-  database: "orders_db",
-  password: "mypassword",
-  port: 5432,
+  connectionString: DATABASE_URL,
 })
 
 let rabbitmqChannel
 const RABBITMQ_URL = process.env.RABBITMQ_URL
 const ORDERS_QUEUE_NAME = "orders_queue"
-
-async function connectToRabbitMQ() {
-  try {
-    const connection = await amqp.connect(RABBITMQ_URL)
-    rabbitmqChannel = await connection.createChannel()
-    await rabbitmqChannel.assertQueue(ORDERS_QUEUE_NAME, { durable: true })
-    console.log("✅ Connected to RabbitMQ")
-  } catch (error) {
-    console.error("🔥 Failed to connect to RabbitMQ", error)
-    process.exit(1) // Exit if we can't connect
-  }
-}
-// -----------------------------------------
 
 app.post("/api/orders", async (req, res) => {
   try {
@@ -112,7 +99,23 @@ wss.on("connection", async (ws, req) => {
 })
 
 const PORT = 3000
-server.listen(PORT, () => {
-  console.log(`API Server & WebSocket running on http://localhost:${PORT}`)
-  connectToRabbitMQ()
-})
+
+async function startServer() {
+  try {
+    console.log("[🚀] Starting server...")
+
+    await checkPostgresConnection(DATABASE_URL)
+    const rabbitmqConnection = await connectToRabbitMQ(RABBITMQ_URL)
+    rabbitmqChannel = await rabbitmqConnection.createChannel()
+    await rabbitmqChannel.assertQueue(ORDERS_QUEUE_NAME, { durable: true })
+
+    server.listen(PORT, () => {
+      console.log(`API Server & WebSocket running on http://localhost:${PORT}`)
+    })
+  } catch (error) {
+    console.error("🔥 Server failed to start:", error)
+    process.exit(1)
+  }
+}
+
+startServer()

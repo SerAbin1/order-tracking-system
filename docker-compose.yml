@@ -1,7 +1,6 @@
-version: "3.8"
 services:
   postgres:
-    image: postgres:14-alpine
+    image: postgres:16-alpine
     restart: always
     environment:
       - POSTGRES_USER=myuser
@@ -16,8 +15,8 @@ services:
     image: rabbitmq:3.13-management
     restart: always
     ports:
-      - "5672:5672" # Port for the application to connect
-      - "15672:15672" # Port for the management web UI
+      - "5672:5672"
+      - "15672:15672"
     environment:
       - RABBITMQ_DEFAULT_USER=myuser
       - RABBITMQ_DEFAULT_PASS=mypassword
@@ -29,6 +28,54 @@ services:
       - "6379:6379"
     volumes:
       - redis_data:/data
+
+  api-server:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - REDIS_URL=${REDIS_URL}
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - postgres
+      - rabbitmq
+      - redis
+    command: node index.js
+
+  location-worker:
+    build: .
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - REDIS_URL=${REDIS_URL}
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - rabbitmq
+      - redis
+      - postgres
+    command: node location_worker.js
+
+  order-worker:
+    build: .
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - rabbitmq
+      - postgres
+    command: node worker.js
+
+  simulator:
+    build: .
+    environment:
+      - RABBITMQ_URL=${RABBITMQ_URL}
+      - DRIVER_ID=${DRIVER_ID}
+    depends_on:
+      - rabbitmq
+    command: node simulator.js
 
 volumes:
   postgres_data:

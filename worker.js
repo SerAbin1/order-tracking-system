@@ -1,16 +1,14 @@
 require("dotenv").config()
-const amqp = require("amqplib")
 const { Pool } = require("pg")
+
+const { connectToRabbitMQ } = require("./utils/connections")
 
 // --- Database and RabbitMQ Connection Details ---
 const RABBITMQ_URL = process.env.RABBITMQ_URL
 const QUEUE_NAME = "orders_queue"
+
 const pool = new Pool({
-  user: "myuser",
-  host: "localhost",
-  database: "orders_db",
-  password: "mypassword",
-  port: 5432,
+  connectionString: process.env.DATABASE_URL,
 })
 
 async function processOrder(order) {
@@ -29,7 +27,7 @@ async function processOrder(order) {
 async function startWorker() {
   try {
     // --- Connect to RabbitMQ ---
-    const connection = await amqp.connect(RABBITMQ_URL)
+    const connection = await connectToRabbitMQ(RABBITMQ_URL)
     const channel = await connection.createChannel()
     await channel.assertQueue(QUEUE_NAME, { durable: true })
 
