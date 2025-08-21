@@ -1,7 +1,7 @@
 const amqp = require("amqplib")
 const { Pool } = require("pg")
 
-async function connectToRabbitMQ(RABBITMQ_URL) {
+async function connectToRabbitMQ(RABBITMQ_URL, onClose) {
   let attempt = 0
   const maxRetries = 10
 
@@ -9,13 +9,20 @@ async function connectToRabbitMQ(RABBITMQ_URL) {
     try {
       const connection = await amqp.connect(RABBITMQ_URL)
       console.log("✅ Connected to RabbitMQ")
+
+      connection.on("close", () => {
+        console.log("Rabbit connection closed")
+        if (onClose) {
+          onClose()
+        }
+      })
+
       return connection
     } catch (error) {
       attempt++
-      const delay = Math.pow(2, attempt) * 1000
-      const jitter = Math.random() * 1000
+      const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000
       console.warn(
-        `[!] RabbitMQ connection failed. Retrying in ${((delay + jitter) / 1000).toFixed(2)}s...`,
+        `[!] RabbitMQ connection failed. Retrying in ${(delay / 1000).toFixed(2)}s...`,
       )
 
       if (attempt >= maxRetries) {
@@ -25,7 +32,7 @@ async function connectToRabbitMQ(RABBITMQ_URL) {
         )
         process.exit(1)
       }
-      await new Promise((resolve) => setTimeout(resolve, delay + jitter))
+      await new Promise((resolve) => setTimeout(resolve, delay))
     }
   }
 }
@@ -37,9 +44,9 @@ async function checkPostgresConnection(DATABASE_URL) {
 
   while (attempt < maxRetries) {
     try {
-      await pool.query("SELECT NOW()") // A simple, harmless query
+      await pool.query("SELECT NOW()")
       console.log("✅ Connected to PostgreSQL")
-      await pool.end() // Close the temporary pool
+      await pool.end()
       return
     } catch (error) {
       attempt++

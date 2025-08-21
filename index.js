@@ -10,19 +10,25 @@ const {
   checkPostgresConnection,
 } = require("./utils/connections")
 
+const PORT = 3000
+const RABBITMQ_URL = process.env.RABBITMQ_URL
+const REDIS_URL = process.env.REDIS_URL
+const ORDERS_QUEUE_NAME = "orders_queue"
+const DATABASE_URL = process.env.DATABASE_URL
+let rabbitmqChannel
+let isRabbitConnected = false
+
 const app = express()
+
+app.use(express.static("public"))
+
 app.use(express.json())
 
 const server = http.createServer(app)
-const DATABASE_URL = process.env.DATABASE_URL
 
 const pool = new Pool({
   connectionString: DATABASE_URL,
 })
-
-let rabbitmqChannel
-const RABBITMQ_URL = process.env.RABBITMQ_URL
-const ORDERS_QUEUE_NAME = "orders_queue"
 
 app.post("/api/orders", async (req, res) => {
   try {
@@ -50,8 +56,7 @@ app.post("/api/orders", async (req, res) => {
     rabbitmqChannel.sendToQueue(ORDERS_QUEUE_NAME, Buffer.from(message), {
       persistent: true,
     })
-    console.log(`✅ Sent order ${newOrder.id} to exchange`)
-    // --------------------------------------------
+    console.log(`✅ Sent order ${newOrder.id} to queue`)
 
     res.status(201).json(newOrder)
   } catch (error) {
@@ -60,8 +65,37 @@ app.post("/api/orders", async (req, res) => {
   }
 })
 
+app.get("/health", async (req, res) => {
+  let httpStatus = 200
+  const healthStatus = {
+    status: "ok",
+    services: {
+      database: "ok",
+      messageBroker: "ok",
+    },
+    timestamp: new Date().toISOString(),
+  }
+
+  try {
+    await pool.query("SELECT 1")
+  } catch (e) {
+    healthStatus.services.database = "error"
+    httpStatus = 503
+  }
+
+  if (!isRabbitConnected) {
+    healthStatus.services.messageBroker = "error"
+    httpStatus = 503
+  }
+
+  if (httpStatus !== 200) {
+    healthStatus.status = "error"
+  }
+
+  res.status(httpStatus).json(healthStatus)
+})
+
 const wss = new WebSocketServer({ server })
-const REDIS_URL = process.env.REDIS_URL
 
 wss.on("connection", async (ws, req) => {
   console.log("New client connected")
@@ -98,16 +132,43 @@ wss.on("connection", async (ws, req) => {
   })
 })
 
-const PORT = 3000
+async function manageRabbitMQConnection(attempt = 0) {
+  const maxRetries = 10
+
+  try {
+    const connection = await connectToRabbitMQ(RABBITMQ_URL, () => {
+      isRabbitConnected = false
+      console.log("[!] Connection lost. Attempting to reconnect...")
+      manageRabbitMQConnection()
+    })
+
+    rabbitmqChannel = await connection.createChannel()
+    await rabbitmqChannel.assertQueue(ORDERS_QUEUE_NAME, { durable: true })
+    isRabbitConnected = true
+    console.log("✅ RabbitMQ setup is complete.")
+  } catch (error) {
+    isRabbitConnected = false
+    if (attempt < maxRetries) {
+      const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000
+      console.error(
+        `🔥 Connection attempt ${attempt + 1} failed. Retrying in ${(delay / 1000).toFixed(2)}s...`,
+      )
+      setTimeout(() => manageRabbitMQConnection(attempt + 1), delay)
+    } else {
+      console.error(
+        "🔥 Could not connect to RabbitMQ after multiple retries. Exiting.",
+      )
+      process.exit(1)
+    }
+  }
+}
 
 async function startServer() {
   try {
     console.log("[🚀] Starting server...")
 
     await checkPostgresConnection(DATABASE_URL)
-    const rabbitmqConnection = await connectToRabbitMQ(RABBITMQ_URL)
-    rabbitmqChannel = await rabbitmqConnection.createChannel()
-    await rabbitmqChannel.assertQueue(ORDERS_QUEUE_NAME, { durable: true })
+    await manageRabbitMQConnection()
 
     server.listen(PORT, () => {
       console.log(`API Server & WebSocket running on http://localhost:${PORT}`)

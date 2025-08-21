@@ -6,17 +6,17 @@ const RABBITMQ_URL = process.env.RABBITMQ_URL
 const QUEUE_NAME = "gps_updates_queue"
 
 const DRIVER_ID = process.env.DRIVER_ID
-const UPDATE_INTERVAL_MS = 3000
+const UPDATE_INTERVAL_MS = 1000
 let rabbitChannel
 
 let currentLocation = {
-  latitude: 28.6139,
-  longitude: 77.209,
+  latitude: 16.9891,
+  longitude: 82.2475,
 }
 
 function getNextLocation() {
-  currentLocation.latitude += (Math.random() - 0.5) * 0.001
-  currentLocation.longitude += (Math.random() - 0.5) * 0.001
+  currentLocation.latitude += Math.random() * 0.001
+  currentLocation.longitude += Math.random() * 0.001
   return currentLocation
 }
 
@@ -36,34 +36,46 @@ async function sendLocationUpdate() {
   )
 }
 
-async function startSimulator() {
-  console.log("--- Driver Simulator Started ---")
-  if (!DRIVER_ID) {
-    console.error("🔥 Error: DRIVER_ID not found in .env file.")
-    process.exit(1)
+async function startSimulator(attempt = 0) {
+  const maxRetries = 10
+
+  if (attempt == 0) {
+    console.log("--- Driver Simulator Started ---")
+    if (!DRIVER_ID) {
+      console.error("🔥 Error: DRIVER_ID not found in .env file.")
+      process.exit(1)
+    }
   }
 
   try {
-    const connection = await connectToRabbitMQ(RABBITMQ_URL)
+    const connection = await connectToRabbitMQ(RABBITMQ_URL, () => {
+      if (updateInterval) clearInterval(updateInterval)
+      console.log("Attempting simulator recconection")
+      startSimulator()
+    })
+
     rabbitChannel = await connection.createChannel()
     await rabbitChannel.assertQueue(QUEUE_NAME, { durable: true })
     console.log("✅ Simulator connected to RabbitMQ")
 
-    connection.on("close", () => {
-      console.error("🔥 RabbitMQ connection closed!")
-      process.exit(1)
-    })
-
     console.log(
       `--- Sending updates for driver ${DRIVER_ID} every ${UPDATE_INTERVAL_MS / 1000} seconds ---`,
     )
-    setInterval(() => {
+    updateInterval = setInterval(() => {
       sendLocationUpdate(rabbitChannel)
     }, UPDATE_INTERVAL_MS)
   } catch (error) {
-    console.error("🔥 Failed to start simulator:", error)
-    process.exit(1)
+    if (updateInterval) clearInterval(updateInterval)
+
+    if (attempt < maxRetries) {
+      const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000
+      setTimeout(() => startSimulator(attempt + 1), delay)
+    } else {
+      console.error("🔥 Failed to start simulator:", error)
+      process.exit(1)
+    }
   }
 }
 
+let updateInterval = null
 startSimulator()
