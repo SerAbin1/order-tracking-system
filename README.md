@@ -73,7 +73,7 @@ This project can be run in two ways: using Docker (single command) or by running
     DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/orders_db
     RABBITMQ_URL=amqp://myuser:mypassword@localhost:5672
     REDIS_URL=redis://localhost:6379
-DRIVER_ID=93672337-208b-44fb-aa67-8be450ecdfe
+    DRIVER_ID=93672337-208b-44fb-aa67-8be450ecdfe
     ```
 
 3.  **Install dependencies:**
