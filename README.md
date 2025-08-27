@@ -2,7 +2,7 @@
 
 A microservices based order tracking system with a message queue (RabbitMQ), caching (Redis), real-time connection (WebSockets), and PostgreSQL.
 
-The driver coordinates is simulated by the _simulator.js_ which acts as the delivery agent and sent to the RabbitMQ queue _gps_orders_queue_. It is consumed by the _location_worker.js_ and sent to the redis channel of the particular driver. When a client is connected, the Web Socker server subscribes to the relevant Redis Pub/Sub channel and sent the message to the connected client, which is used to update the marker in the UI.
+The driver coordinates is produced by the _simulator.js_, which acts as the delivery agent and is forwarded to the RabbitMQ queue _gps_orders_queue_. It is consumed by the _location_worker.js_ and sent to the Redis channel of the particular driver. When a client is connected, the Web Socket server subscribes to the relevant Redis Pub/Sub channel and the message is sent to the connected client, which is used to update the marker in the UI.
 
 The `/api/orders` endpoint can be used to place an order in the. It will be consumed from the RabbitMQ queue `orders_queue` by the _order_worker.js_.
 
@@ -73,6 +73,7 @@ This project can be run in two ways: using Docker (single command) or by running
     DATABASE_URL=postgresql://myuser:mypassword@localhost:5432/orders_db
     RABBITMQ_URL=amqp://myuser:mypassword@localhost:5672
     REDIS_URL=redis://localhost:6379
+DRIVER_ID=93672337-208b-44fb-aa67-8be450ecdfe
     ```
 
 3.  **Install dependencies:**
