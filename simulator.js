@@ -32,7 +32,7 @@ async function sendLocationUpdate() {
   rabbitChannel.sendToQueue(QUEUE_NAME, messageBuffer, { persistent: true })
 
   console.log(
-    `[🚚] Sent Location for driver ${DRIVER_ID}: Lat ${newLocation.latitude.toFixed(4)}, Lon ${newLocation.longitude.toFixed(4)}`,
+    `Sent Location for driver ${DRIVER_ID}: Lat ${newLocation.latitude.toFixed(4)}, Lon ${newLocation.longitude.toFixed(4)}`,
   )
 }
 
@@ -42,7 +42,7 @@ async function startSimulator(attempt = 0) {
   if (attempt == 0) {
     console.log("--- Driver Simulator Started ---")
     if (!DRIVER_ID) {
-      console.error("🔥 Error: DRIVER_ID not found in .env file.")
+      console.error("Error: DRIVER_ID not found in .env file.")
       process.exit(1)
     }
   }
@@ -50,13 +50,13 @@ async function startSimulator(attempt = 0) {
   try {
     const connection = await connectToRabbitMQ(RABBITMQ_URL, () => {
       if (updateInterval) clearInterval(updateInterval)
-      console.log("Attempting simulator recconection")
+      console.log("Attempting simulator reconnection")
       startSimulator()
     })
 
     rabbitChannel = await connection.createChannel()
     await rabbitChannel.assertQueue(QUEUE_NAME, { durable: true })
-    console.log("✅ Simulator connected to RabbitMQ")
+    console.log("Simulator connected to RabbitMQ")
 
     console.log(
       `--- Sending updates for driver ${DRIVER_ID} every ${UPDATE_INTERVAL_MS / 1000} seconds ---`,
@@ -71,7 +71,7 @@ async function startSimulator(attempt = 0) {
       const delay = Math.pow(2, attempt) * 1000 + Math.random() * 1000
       setTimeout(() => startSimulator(attempt + 1), delay)
     } else {
-      console.error("🔥 Failed to start simulator:", error)
+      console.error("Failed to start simulator:", error)
       process.exit(1)
     }
   }

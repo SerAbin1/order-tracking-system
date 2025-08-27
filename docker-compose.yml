@@ -34,10 +34,8 @@ services:
     restart: unless-stopped
     ports:
       - "3000:3000"
-    environment:
-      - RABBITMQ_URL=${RABBITMQ_URL}
-      - REDIS_URL=${REDIS_URL}
-      - DATABASE_URL=${DATABASE_URL}
+    env_file:
+      - .env.docker
     depends_on:
       - postgres
       - rabbitmq
@@ -70,9 +68,8 @@ services:
 
   simulator:
     build: .
-    environment:
-      - RABBITMQ_URL=${RABBITMQ_URL}
-      - DRIVER_ID=${DRIVER_ID}
+    env_file:
+      - .env.docker
     depends_on:
       - rabbitmq
     command: node simulator.js

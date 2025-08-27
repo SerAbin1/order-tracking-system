@@ -56,11 +56,11 @@ app.post("/api/orders", async (req, res) => {
     rabbitmqChannel.sendToQueue(ORDERS_QUEUE_NAME, Buffer.from(message), {
       persistent: true,
     })
-    console.log(`✅ Sent order ${newOrder.id} to queue`)
+    console.log(`Sent order ${newOrder.id} to queue`)
 
     res.status(201).json(newOrder)
   } catch (error) {
-    console.error("🔥 Error creating order:", error)
+    console.error("Error creating order:", error)
     res.status(500).json({ error: "Internal Server Error" })
   }
 })
@@ -145,7 +145,7 @@ async function manageRabbitMQConnection(attempt = 0) {
     rabbitmqChannel = await connection.createChannel()
     await rabbitmqChannel.assertQueue(ORDERS_QUEUE_NAME, { durable: true })
     isRabbitConnected = true
-    console.log("✅ RabbitMQ setup is complete.")
+    console.log("RabbitMQ setup is complete.")
   } catch (error) {
     isRabbitConnected = false
     if (attempt < maxRetries) {
@@ -165,7 +165,7 @@ async function manageRabbitMQConnection(attempt = 0) {
 
 async function startServer() {
   try {
-    console.log("[🚀] Starting server...")
+    console.log("Starting server...")
 
     await checkPostgresConnection(DATABASE_URL)
     await manageRabbitMQConnection()
@@ -174,7 +174,7 @@ async function startServer() {
       console.log(`API Server & WebSocket running on http://localhost:${PORT}`)
     })
   } catch (error) {
-    console.error("🔥 Server failed to start:", error)
+    console.error("Server failed to start:", error)
     process.exit(1)
   }
 }
